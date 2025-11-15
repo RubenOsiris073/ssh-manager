@@ -76,10 +76,57 @@ WEBSOCKET_PORT=3001
 ## 🚀 Instalación y Ejecución
 
 ### Con Docker (Recomendado)
+
+#### Opción 1: Docker Compose - Producción
 ```bash
 git clone <repositorio>
 cd ssh-manager
-docker compose up -d
+
+# Construir y ejecutar la aplicación
+docker compose up --build
+
+# Ejecutar en segundo plano
+docker compose up -d --build
+
+# Parar la aplicación
+docker compose down
+```
+
+#### Opción 2: Docker - Desarrollo
+```bash
+# 1. Construir la imagen base
+docker build -t ssh-manager-dev .
+
+# 2. Ejecutar el contenedor
+docker run -d -p 3000:3000 -p 2222:22 --name ssh-manager-container ssh-manager-dev
+
+# 3. Copiar el proyecto al contenedor
+docker cp . ssh-manager-container:/app/ssh-manager/
+
+# 4. Entrar al contenedor e instalar dependencias
+docker exec -it ssh-manager-container bash
+cd /app/ssh-manager
+pnpm install
+pnpm dev
+```
+
+#### Comandos Útiles de Docker
+```bash
+# Ver logs del contenedor
+docker compose logs -f ssh-manager
+
+# Entrar al contenedor para debugging
+docker compose exec ssh-manager sh
+
+# Copiar cambios rápidamente en desarrollo
+docker cp ./components ssh-manager-container:/app/ssh-manager/
+docker cp ./app ssh-manager-container:/app/ssh-manager/
+
+# Reiniciar la aplicación en el contenedor
+docker exec -it ssh-manager-container bash -c "cd /app/ssh-manager && pkill -f 'next dev' && pnpm dev"
+
+# Limpiar todo (contenedores, imágenes, volúmenes)
+docker compose down -v --rmi all
 ```
 
 ### Manual
@@ -98,6 +145,8 @@ npm run db:setup
 # 5. Iniciar aplicación
 npm run dev
 ```
+
+**Acceder a la aplicación**: Una vez que esté ejecutándose, accede a `http://localhost:3000`
 
 ## 📱 Funcionalidades Principales
 
