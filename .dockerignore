@@ -1,0 +1,27 @@
+# Archivos ignorados para Docker
+node_modules
+.next
+.git
+.gitignore
+*.log
+.env*.local
+.DS_Store
+Thumbs.db
+coverage
+.nyc_output
+dist
+build
+.cache
+.parcel-cache
+.vscode
+.idea
+
+# Archivos específicos del desarrollo local
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Archivos temporales
+*.swp
+*.swo
+*~

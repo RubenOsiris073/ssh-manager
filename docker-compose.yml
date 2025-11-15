@@ -1,0 +1,99 @@
+services:
+  # Base de datos PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: ssh-manager-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sshmanager
+      POSTGRES_USER: sshmanager
+      POSTGRES_PASSWORD: sshmanager123
+      POSTGRES_INITDB_ARGS: "--auth-local=trust"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ssh-manager-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sshmanager -d sshmanager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis para sesiones y cache
+  redis:
+    image: redis:7-alpine
+    container_name: ssh-manager-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ssh-manager-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Aplicación SSH Manager
+  ssh-manager:
+    build: 
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: ssh-manager-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "3001:3001"  # WebSocket
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://sshmanager:sshmanager123@postgres:5432/sshmanager
+      - REDIS_URL=redis://redis:6379
+      - ENCRYPTION_SECRET=your-super-secret-encryption-key-change-in-production
+      - JWT_SECRET=your-jwt-secret-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ssh-manager-network
+    volumes:
+      - ssh_keys:/app/ssh-keys
+      - app_logs:/app/logs
+
+  # pgAdmin para gestión de DB (opcional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ssh-manager-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@sshmanager.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - ssh-manager-network
+    profiles:
+      - dev # Solo se ejecuta con --profile dev
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  ssh_keys:
+    driver: local
+  app_logs:
+    driver: local
+
+networks:
+  ssh-manager-network:
+    driver: bridge

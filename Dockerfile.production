@@ -1,0 +1,115 @@
+FROM node:20-alpine AS base
+
+# Instalar dependencias del sistema
+RUN apk add --no-cache \
+    openssh-client \
+    bash \
+    curl \
+    git \
+    postgresql-client \
+    python3 \
+    make \
+    g++
+
+# Crear directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de configuración
+COPY package.json package-lock.json* ./
+
+# ==============================================================================
+# Etapa de dependencias
+FROM base AS deps
+
+# Instalar dependencias
+RUN npm install
+
+# ==============================================================================
+# Etapa de construcción
+FROM base AS builder
+
+# Copiar dependencias
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copiar código fuente
+COPY . .
+
+# Construir la aplicación
+RUN npm run build
+
+# Limpiar dependencias de desarrollo
+RUN npm install --only=production && npm cache clean --force
+
+# ==============================================================================
+# Etapa de producción
+FROM node:20-alpine AS production
+
+# Instalar dependencias del sistema necesarias en runtime
+RUN apk add --no-cache \
+    openssh-client \
+    bash \
+    curl \
+    postgresql-client \
+    dumb-init
+
+# Crear usuario no-root
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
+
+# Crear directorios necesarios
+RUN mkdir -p /app/logs /app/ssh-keys && \
+    chown -R nextjs:nodejs /app
+
+WORKDIR /app
+
+# Copiar archivos de producción
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
+COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
+
+# Instalar solo dependencias de producción
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+
+# Crear script de inicio
+RUN echo '#!/bin/bash' > /app/start.sh && \
+    echo 'set -e' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo 'echo "🚀 Starting SSH Manager..."' >> /app/start.sh && \
+    echo 'echo "Environment: $NODE_ENV"' >> /app/start.sh && \
+    echo 'echo "Database: $DATABASE_URL"' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Wait for database' >> /app/start.sh && \
+    echo 'echo "⏳ Waiting for database..."' >> /app/start.sh && \
+    echo 'until pg_isready -h ${DB_HOST:-postgres} -p ${DB_PORT:-5432} -U ${DB_USER:-sshmanager}; do' >> /app/start.sh && \
+    echo '  echo "Database not ready, waiting..."' >> /app/start.sh && \
+    echo '  sleep 2' >> /app/start.sh && \
+    echo 'done' >> /app/start.sh && \
+    echo 'echo "✅ Database is ready"' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# Start the application' >> /app/start.sh && \
+    echo 'echo "🌟 Starting SSH Manager server..."' >> /app/start.sh && \
+    echo 'exec node server.js' >> /app/start.sh && \
+    chmod +x /app/start.sh && \
+    chown nextjs:nodejs /app/start.sh
+
+# Cambiar a usuario no-root
+USER nextjs
+
+# Exponer puertos
+EXPOSE 3000 3001
+
+# Variables de entorno
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/api/health || exit 1
+
+# Comando de inicio
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["/app/start.sh"]

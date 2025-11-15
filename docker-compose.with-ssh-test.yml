@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # Servidor SSH de prueba
+  ssh-test-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.ssh-test
+    container_name: ssh-test-server
+    ports:
+      - "2223:22"  # Puerto SSH mapeado a 2223 para evitar conflictos
+    networks:
+      - ssh-manager-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "service", "ssh", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # SSH Manager existente
+  ssh-manager:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: ssh-manager-app
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://sshmanager:sshmanager123@postgres:5432/sshmanager
+      - JWT_SECRET=your-jwt-secret-change-in-production
+      - ENCRYPTION_SECRET=your-super-secret-encryption-key-change-in-production
+      - WEBSOCKET_PORT=3001
+      - HOSTNAME=0.0.0.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ssh-manager-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ssh-manager-postgres
+    environment:
+      POSTGRES_DB: sshmanager
+      POSTGRES_USER: sshmanager
+      POSTGRES_PASSWORD: sshmanager123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - ssh-manager-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sshmanager -d sshmanager"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: ssh-manager-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ssh-manager-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+
+networks:
+  ssh-manager-network:
+    driver: bridge

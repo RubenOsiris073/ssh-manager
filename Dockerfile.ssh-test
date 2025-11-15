@@ -1,0 +1,49 @@
+# Contenedor SSH de prueba para SSH Manager
+FROM ubuntu:22.04
+
+# Instalar SSH y herramientas básicas
+RUN apt-get update && apt-get install -y \
+    openssh-server \
+    sudo \
+    curl \
+    wget \
+    nano \
+    htop \
+    git \
+    python3 \
+    python3-pip \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configurar SSH
+RUN mkdir /var/run/sshd
+RUN echo 'root:testpass123' | chpasswd
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+# Crear usuario de prueba
+RUN useradd -m -d /home/testuser -s /bin/bash testuser
+RUN echo 'testuser:testpass123' | chpasswd
+RUN usermod -aG sudo testuser
+
+# Configurar entorno del usuario
+RUN mkdir -p /home/testuser/.ssh
+RUN chmod 700 /home/testuser/.ssh
+RUN chown testuser:testuser /home/testuser/.ssh
+
+# Crear algunos archivos de prueba
+RUN echo '#!/bin/bash\necho "¡Hola desde el servidor SSH de prueba!"' > /home/testuser/welcome.sh
+RUN chmod +x /home/testuser/welcome.sh
+RUN chown testuser:testuser /home/testuser/welcome.sh
+
+RUN echo 'echo "🚀 SSH Manager Test Server"' >> /home/testuser/.bashrc
+RUN echo 'echo "📡 Conectado exitosamente!"' >> /home/testuser/.bashrc
+RUN echo 'echo "Usuario: $(whoami) | Host: $(hostname) | IP: $(hostname -I)"' >> /home/testuser/.bashrc
+RUN echo 'echo "Prueba algunos comandos: ls, pwd, df -h, ps aux"' >> /home/testuser/.bashrc
+
+# Exponer puerto SSH
+EXPOSE 22
+
+# Comando para iniciar SSH
+CMD ["/usr/sbin/sshd", "-D"]
