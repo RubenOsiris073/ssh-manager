@@ -17,7 +17,6 @@ build
 .idea
 
 # Archivos específicos del desarrollo local
-pnpm-lock.yaml
 yarn.lock
 package-lock.json
 

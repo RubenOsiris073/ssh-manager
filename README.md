@@ -9,7 +9,7 @@ Una aplicación web moderna para gestionar conexiones SSH con terminal interacti
 - **📊 Base de Datos PostgreSQL**: Almacenamiento seguro con encriptación de credenciales
 - **🌐 Tiempo Real**: Comunicación bidireccional WebSocket para terminales interactivos
 - **🎨 UI Moderna**: Next.js 14 con TypeScript, Tailwind CSS y componentes Radix UI
-- **📱 Responsive**: Interfaz adaptable optimizada para desktop y móvil
+
 
 ## 🏗️ Arquitectura del Sistema
 
@@ -54,7 +54,9 @@ Password: sshmanager123
 ### Usuario Demo de la Aplicación
 ```
 Username: demo
-Password: demo12345
+Password: demo123
+Username: admin
+Password: admin123
 ```
 
 ### Servidor SSH de Prueba (Docker)
@@ -79,27 +81,98 @@ WEBSOCKET_PORT=3001
 ```bash
 git clone <repositorio>
 cd ssh-manager
-docker compose up -d
+make docker-up
+# o manualmente:
+docker compose -f docker/docker-compose.yml up -d
 ```
 
 ### Manual
 ```bash
 # 1. Instalar dependencias
-npm install
+make install
+# o: pnpm install
 
-# 2. Configurar PostgreSQL y crear base de datos
-createdb sshmanager_db
+# 2. Configurar entorno inicial  
+make setup
 
-# 3. Configurar .env.local con las credenciales
-
-# 4. Ejecutar migraciones de base de datos  
-npm run db:setup
-
-# 5. Iniciar aplicación
-npm run dev
+# 3. Iniciar en desarrollo
+make dev
+# o: pnpm dev
 ```
 
-## 📱 Funcionalidades Principales
+### Scripts Disponibles
+```bash
+make help              # Ver todos los comandos disponibles
+make docker-up         # Iniciar con Docker
+make dev              # Modo desarrollo
+make build            # Construir aplicación
+make test             # Ejecutar pruebas
+make clean            # Limpiar archivos temporales
+```
+
+## � Estructura del Proyecto
+
+```
+ssh-manager/
+├── 📄 README.md                 # Documentación principal
+├── 📄 Makefile                  # Comandos de desarrollo
+├── 📄 package.json              # Dependencias y scripts NPM
+├── 📄 server.js                 # Servidor WebSocket para SSH
+├── 📄 middleware.ts             # Middleware de autenticación
+├── 🔗 next.config.mjs           # → config/next.config.mjs
+├── 🔗 tsconfig.json             # → config/tsconfig.json
+├── 🔗 postcss.config.mjs        # → config/postcss.config.mjs
+├── 🔗 components.json           # → config/components.json
+│
+├── 📂 app/                      # Next.js App Router
+│   ├── 📂 api/                  # API Routes REST
+│   ├── 📄 layout.tsx            # Layout principal
+│   ├── 📄 page.tsx              # Página de inicio
+│   └── 📄 globals.css           # Estilos globales
+│
+├── 📂 components/               # Componentes React
+│   ├── 📂 ui/                   # Componentes base Radix UI
+│   ├── 📄 ssh-manager.tsx       # Componente principal
+│   ├── 📄 home-screen.tsx       # Pantalla de inicio + Quick Connect
+│   ├── 📄 terminal-area.tsx     # Gestor de terminales múltiples
+│   ├── 📄 connection-sidebar.tsx # Navegación y lista de conexiones
+│   └── 📄 connection-dialog.tsx  # Modal crear/editar conexiones
+│
+├── 📂 config/                   # Archivos de configuración
+│   ├── 📄 next.config.mjs       # Configuración Next.js
+│   ├── 📄 tsconfig.json         # Configuración TypeScript
+│   ├── 📄 postcss.config.mjs    # Configuración PostCSS/Tailwind
+│   ├── 📄 components.json       # Configuración componentes UI
+│   └── 📄 .env.example          # Template variables entorno
+│
+├── 📂 docker/                   # Configuración Docker
+│   ├── 📄 docker-compose.yml    # Servicios principales
+│   ├── 📄 docker-compose.with-ssh-test.yml # Con servidor SSH test
+│   ├── 📄 Dockerfile            # Imagen aplicación
+│   ├── 📄 Dockerfile.production # Imagen optimizada producción
+│   ├── 📄 Dockerfile.ssh-test   # Servidor SSH para pruebas
+│   └── 📄 .dockerignore         # Archivos ignorados por Docker
+│
+├── 📂 docs/                     # Documentación adicional
+│   ├── 📄 README-Docker.md      # Guía Docker detallada
+│   └── 📄 README-Docker-Dev.md  # Docker para desarrollo
+│
+├── 📂 scripts/                  # Scripts de automatización
+│   ├── 📄 dev.sh                # Script desarrollo rápido
+│   ├── 📄 docker-manager.sh     # Gestión Docker avanzada
+│   ├── 📄 setup-test-ssh.sh     # Configuración SSH test
+│   ├── 📄 test-api.sh           # Pruebas de APIs
+│   ├── 📄 test-integration.sh   # Pruebas de integración
+│   └── 📄 copy-changes.sh       # Sincronización archivos
+│
+├── 📂 lib/                      # Servicios y utilidades backend
+├── 📂 contexts/                 # Contextos React
+├── 📂 hooks/                    # Custom hooks React
+├── 📂 public/                   # Assets estáticos
+└── 📂 styles/                   # Estilos adicionales
+```
+
+## �📱 Funcionalidades Principales
 
 ### Gestión de Conexiones SSH
 - **Quick Connect**: Conexión rápida ingresando host, usuario y password

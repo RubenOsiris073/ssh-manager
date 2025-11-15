@@ -149,7 +149,7 @@ class DatabaseManager {
       await client.query(`
         CREATE INDEX IF NOT EXISTS idx_ssh_connections_user_id ON ssh_connections(user_id);
         CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id);
-        CREATE INDEX IF NOT EXISTS idx_activity_logs_timestamp ON activity_logs(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
         CREATE INDEX IF NOT EXISTS idx_ssh_sessions_user_id ON ssh_sessions(user_id);
         CREATE INDEX IF NOT EXISTS idx_ssh_sessions_active ON ssh_sessions(is_active);
       `);
