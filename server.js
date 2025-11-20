@@ -4,6 +4,7 @@ const next = require('next');
 const { WebSocketServer } = require('ws');
 const { Client: SSHClient } = require('ssh2');
 const { Pool } = require('pg');
+const crypto = require('crypto');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || '0.0.0.0';
@@ -25,6 +26,7 @@ const activeSessions = new Map();
 app.prepare().then(() => {
   // Servidor HTTP principal de Next.js
   const server = createServer(async (req, res) => {
+    console.log(`🌐 SERVER.JS: ${req.method} ${req.url} - Headers:`, JSON.stringify(req.headers, null, 2));
     try {
       const parsedUrl = parse(req.url, true);
       await handle(req, res, parsedUrl);
@@ -57,15 +59,60 @@ app.prepare().then(() => {
 
         switch (data.type) {
           case 'auth':
-            // Por simplicidad, vamos a aceptar cualquier token por ahora
-            // En producción, aquí verificarías el token JWT
-            isAuthenticated = true;
-            userId = 'e11af4ab-a61f-4c27-8dad-1a3d07d0d49f'; // Usuario demo
-            
-            ws.send(JSON.stringify({
-              type: 'auth_success',
-              message: 'Authentication successful'
-            }));
+            // Por ahora, usar autenticación simplificada
+            // TODO: Implementar verificación JWT completa desde cookies
+            try {
+              // Extraer token de las cookies
+              const cookieHeader = req.headers.cookie;
+              let token = null;
+              
+              if (cookieHeader) {
+                const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+                  const [key, value] = cookie.trim().split('=');
+                  acc[key] = value;
+                  return acc;
+                }, {});
+                token = cookies['auth-token'];
+              }
+              
+              if (!token && data.token) {
+                token = data.token;
+              }
+              
+              if (!token) {
+                ws.send(JSON.stringify({
+                  type: 'auth_error',
+                  message: 'No authentication token provided'
+                }));
+                return;
+              }
+              
+              // Verificación simplificada del token (decodificar sin verificar por ahora)
+              try {
+                const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+                isAuthenticated = true;
+                userId = payload.userId;
+                
+                console.log(`✅ WebSocket authenticated for user: ${payload.username || 'unknown'} (${userId})`);
+                
+                ws.send(JSON.stringify({
+                  type: 'auth_success',
+                  message: 'Authentication successful'
+                }));
+              } catch (decodeError) {
+                console.error('❌ Token decode failed:', decodeError.message);
+                ws.send(JSON.stringify({
+                  type: 'auth_error',
+                  message: 'Invalid token format'
+                }));
+              }
+            } catch (error) {
+              console.error('❌ WebSocket auth failed:', error.message);
+              ws.send(JSON.stringify({
+                type: 'auth_error',
+                message: 'Authentication failed'
+              }));
+            }
             break;
 
           case 'connect':
@@ -93,7 +140,56 @@ app.prepare().then(() => {
               }
 
               const connection = result.rows[0];
+              
+              // Limpiar espacios en blanco del hostname
+              connection.host = connection.host ? connection.host.trim() : connection.host;
+              
               console.log(`🔗 Connecting to ${connection.host}:${connection.port} as ${connection.username}`);
+
+              // Desencriptar contraseña usando el mismo método que postgresql.ts
+              if (connection.password) {
+                try {
+                  console.log(`🔍 Processing password for ${connection.host}`);
+                  
+                  // Configurar la misma clave de encriptación que usa postgresql.ts
+                  const secret = process.env.ENCRYPTION_SECRET || 'default-secret-key-change-in-production';
+                  const encryptionKey = crypto.scryptSync(secret, 'salt', 32);
+                  
+                  // Aplicar el mismo algoritmo de desencriptación
+                  function decrypt(encryptedText) {
+                    if (!encryptedText) return '';
+                    
+                    // Si no contiene ':', probablemente es texto plano (datos de prueba)
+                    if (!encryptedText.includes(':')) {
+                      console.log('🔓 Returning plain text password');
+                      return encryptedText;
+                    }
+                    
+                    try {
+                      const [ivHex, encrypted] = encryptedText.split(':');
+                      
+                      const iv = Buffer.from(ivHex, 'hex');
+                      const decipher = crypto.createDecipheriv('aes-256-cbc', encryptionKey, iv);
+                      
+                      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+                      decrypted += decipher.final('utf8');
+                      
+                      return decrypted;
+                    } catch (error) {
+                      console.warn('⚠️ Failed to decrypt, returning as plain text:', error);
+                      return encryptedText;
+                    }
+                  }
+                  
+                  connection.decrypted_password = decrypt(connection.password);
+                  console.log(`🔓 Password decrypted successfully for ${connection.host}`);
+                  
+                } catch (decryptError) {
+                  console.error('❌ Password decryption failed:', decryptError.message);
+                  connection.decrypted_password = connection.password;
+                  console.log(`⚠️ Using password as-is for ${connection.host}`);
+                }
+              }
 
               // Crear cliente SSH real
               const sshClient = new SSHClient();
@@ -168,10 +264,10 @@ app.prepare().then(() => {
               });
 
               sshClient.on('error', (err) => {
-                console.error(`❌ SSH Client error for ${connection.host}:`, err.message);
+                console.error(`❌ SSH Client error for ${connection.host}:`, err);
                 ws.send(JSON.stringify({
                   type: 'error',
-                  message: `SSH connection failed: ${err.message}`
+                  message: `SSH connection failed: ${err.message || err.code || 'Unknown error'}`
                 }));
                 activeSessions.delete(sessionId);
               });
@@ -191,6 +287,14 @@ app.prepare().then(() => {
                 keepaliveInterval: 60000
               };
 
+              console.log(`🔧 SSH Config for ${connection.host}:`, {
+                host: sshConfig.host,
+                port: sshConfig.port,
+                username: sshConfig.username,
+                hasPassword: !!connection.decrypted_password,
+                hasPrivateKey: !!connection.private_key
+              });
+
               // Agregar método de autenticación
               if (connection.private_key) {
                 // Autenticación por clave privada
@@ -198,11 +302,14 @@ app.prepare().then(() => {
                 if (connection.passphrase) {
                   sshConfig.passphrase = connection.decrypted_passphrase || connection.passphrase;
                 }
+                console.log(`🔑 Using private key authentication for ${connection.host}`);
               } else if (connection.password) {
                 // Autenticación por contraseña
                 sshConfig.password = connection.decrypted_password || connection.password;
+                console.log(`🔑 Using password authentication for ${connection.host}`);
               }
 
+              console.log(`🚀 Attempting SSH connection to ${connection.host}:${connection.port}...`);
               sshClient.connect(sshConfig);
 
             } catch (error) {

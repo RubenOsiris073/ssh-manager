@@ -14,9 +14,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Server, Plus, Clock, User, Globe, Key, Trash2, Edit, Play } from "lucide-react"
+import { Server, Plus, Clock, User, Globe, Key, Trash2, Edit, Play, Loader2 } from "lucide-react"
 import type { SSHConnection } from "./ssh-manager"
 import { cn } from "@/lib/utils"
+import { sshService } from "@/lib/ssh/service"
+import { toast } from "@/hooks/use-toast"
 
 interface HomeScreenProps {
   connections: SSHConnection[]
@@ -41,6 +43,7 @@ export function HomeScreen({
   onDeleteConnection,
 }: HomeScreenProps) {
   const [showQuickConnect, setShowQuickConnect] = useState(false)
+  const [quickConnectLoading, setQuickConnectLoading] = useState(false)
   const [quickConnectForm, setQuickConnectForm] = useState<QuickConnectForm>({
     host: "",
     username: "",
@@ -48,20 +51,62 @@ export function HomeScreen({
     port: "22",
   })
 
-  const handleQuickConnect = () => {
-    if (!quickConnectForm.host || !quickConnectForm.username) return
-
-    const newConnection = {
-      name: `${quickConnectForm.username}@${quickConnectForm.host}`,
-      host: quickConnectForm.host,
-      username: quickConnectForm.username,
-      port: Number.parseInt(quickConnectForm.port) || 22,
-      lastConnected: new Date(),
+  const handleQuickConnect = async () => {
+    if (!quickConnectForm.host.trim() || !quickConnectForm.username.trim() || !quickConnectForm.password) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in host, username, and password",
+        variant: "destructive"
+      })
+      return
     }
 
-    onAddConnection(newConnection)
-    setShowQuickConnect(false)
-    setQuickConnectForm({ host: "", username: "", password: "", port: "22" })
+    setQuickConnectLoading(true)
+
+    try {
+      const result = await sshService.quickConnect({
+        host: quickConnectForm.host.trim(),
+        port: Number.parseInt(quickConnectForm.port) || 22,
+        username: quickConnectForm.username.trim(),
+        password: quickConnectForm.password,
+        name: `${quickConnectForm.username.trim()}@${quickConnectForm.host.trim()}`
+      })
+
+      // Crear la conexión localmente para el estado
+      const newConnection: SSHConnection = {
+        id: result.connectionId,
+        name: `${quickConnectForm.username.trim()}@${quickConnectForm.host.trim()}`,
+        host: quickConnectForm.host.trim(),
+        username: quickConnectForm.username.trim(),
+        port: Number.parseInt(quickConnectForm.port) || 22,
+        status: "connected",
+        lastConnected: new Date(),
+      }
+
+      // Agregar la conexión al estado
+      onAddConnection(newConnection)
+      
+      // Conectar inmediatamente
+      onConnect(result.connectionId)
+
+      toast({
+        title: "Quick Connect Successful",
+        description: result.message || "Connected successfully"
+      })
+
+      setShowQuickConnect(false)
+      setQuickConnectForm({ host: "", username: "", password: "", port: "22" })
+      
+    } catch (error) {
+      console.error('Quick connect failed:', error)
+      toast({
+        title: "Connection Failed",
+        description: error instanceof Error ? error.message : "Failed to connect",
+        variant: "destructive"
+      })
+    } finally {
+      setQuickConnectLoading(false)
+    }
   }
 
   const getStatusColor = (status: SSHConnection["status"]) => {
@@ -165,12 +210,24 @@ export function HomeScreen({
                 <div className="flex gap-2 pt-4">
                   <Button
                     type="submit"
-                    disabled={!quickConnectForm.host || !quickConnectForm.username}
+                    disabled={!quickConnectForm.host.trim() || !quickConnectForm.username.trim() || !quickConnectForm.password || quickConnectLoading}
                     className="flex-1"
                   >
-                    Connect
+                    {quickConnectLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      'Connect'
+                    )}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setShowQuickConnect(false)}>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowQuickConnect(false)}
+                    disabled={quickConnectLoading}
+                  >
                     Cancel
                   </Button>
                 </div>

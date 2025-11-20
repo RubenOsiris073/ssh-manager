@@ -20,17 +20,35 @@ export function createAuthMiddleware() {
         '/api/auth/register'
       ];
 
+      // Rutas que requieren autenticación pero procesamos internamente
+      const authCheckPaths = [
+        '/api/auth/me'
+      ];
+
       const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path));
       const isAuthPath = authPaths.some(path => pathname.startsWith(path));
+      const isAuthCheckPath = authCheckPaths.some(path => pathname.startsWith(path));
 
       // Si es una ruta de autenticación, permitir sin token
       if (isAuthPath) {
         return NextResponse.next();
       }
 
+      // Si es una ruta de verificación de auth, permitir que pase y se maneje internamente
+      if (isAuthCheckPath) {
+        return NextResponse.next();
+      }
+
       // Si es una ruta protegida, verificar autenticación
       if (isProtectedPath) {
         const token = AuthService.extractTokenFromRequest(request);
+        
+        console.log('🔍 Debug middleware:', {
+          pathname,
+          token: token ? 'TOKEN_EXISTS' : 'NO_TOKEN',
+          cookies: request.cookies.toString(),
+          authHeader: request.headers.get('authorization')
+        });
         
         if (!token) {
           return NextResponse.json(

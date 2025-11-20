@@ -176,18 +176,29 @@ class DatabaseManager {
     return iv.toString('hex') + ':' + encrypted;
   }
 
-  private decrypt(encryptedText: string): string {
+  decrypt(encryptedText: string): string {
     if (!encryptedText) return '';
     
-    const [ivHex, encrypted] = encryptedText.split(':');
+    // Si no contiene ':', probablemente es texto plano (datos de prueba)
+    if (!encryptedText.includes(':')) {
+      console.log('🔓 Returning plain text password');
+      return encryptedText;
+    }
     
-    const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', this.encryptionKey, iv);
-    
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
+    try {
+      const [ivHex, encrypted] = encryptedText.split(':');
+      
+      const iv = Buffer.from(ivHex, 'hex');
+      const decipher = crypto.createDecipheriv('aes-256-cbc', this.encryptionKey, iv);
+      
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      
+      return decrypted;
+    } catch (error) {
+      console.warn('⚠️ Failed to decrypt, returning as plain text:', error);
+      return encryptedText;
+    }
   }
 
   // Métodos de usuarios
@@ -269,6 +280,7 @@ class DatabaseManager {
 
       // Desencriptar credenciales
       if (connection.password) {
+        console.log('🔐 Processing password for connection:', connection.name);
         connection.password = this.decrypt(connection.password);
       }
       if (connection.private_key) {

@@ -10,7 +10,7 @@ export interface JWTPayload {
 }
 
 export class AuthService {
-  private static readonly JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret-not-for-production';
+  private static readonly JWT_SECRET = process.env.JWT_SECRET || 'your-jwt-secret-change-in-production';
   private static readonly JWT_EXPIRES_IN = '7d';
   private static readonly REFRESH_EXPIRES_IN = '30d';
 
@@ -99,7 +99,8 @@ export class AuthService {
   }
 
   static createAuthCookies(token: string, refreshToken: string) {
-    const isProduction = process.env.NODE_ENV === 'production';
+    // Para desarrollo/pruebas en Docker, permitir cookies sin HTTPS
+    const isProduction = process.env.NODE_ENV === 'production' && process.env.HTTPS_ENABLED === 'true';
     
     return {
       authToken: {
@@ -124,12 +125,14 @@ export class AuthService {
   }
 
   static clearAuthCookies() {
+    const isProduction = process.env.NODE_ENV === 'production' && process.env.HTTPS_ENABLED === 'true';
+    
     return {
       authToken: {
         name: 'auth-token',
         value: '',
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction,
         sameSite: 'strict' as const,
         maxAge: 0,
         path: '/'
@@ -138,7 +141,7 @@ export class AuthService {
         name: 'refresh-token',
         value: '',
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction,
         sameSite: 'strict' as const,
         maxAge: 0,
         path: '/api/auth'

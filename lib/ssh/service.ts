@@ -42,7 +42,9 @@ class SSHService {
   // Gestión de conexiones
   async getAllConnections(): Promise<SSHConnection[]> {
     try {
-      const response = await fetch(`${this.baseUrl}/connections`);
+      const response = await fetch(`${this.baseUrl}/connections`, {
+        credentials: 'include'
+      });
       const data = await response.json();
       
       if (!response.ok) {
@@ -58,7 +60,9 @@ class SSHService {
 
   async getConnection(id: string): Promise<SSHConnection> {
     try {
-      const response = await fetch(`${this.baseUrl}/connections/${id}`);
+      const response = await fetch(`${this.baseUrl}/connections/${id}`, {
+        credentials: 'include'
+      });
       const data = await response.json();
       
       if (!response.ok) {
@@ -79,6 +83,7 @@ class SSHService {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(connection),
       });
       
@@ -102,6 +107,7 @@ class SSHService {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(updates),
       });
       
@@ -122,6 +128,7 @@ class SSHService {
     try {
       const response = await fetch(`${this.baseUrl}/connections/${id}`, {
         method: 'DELETE',
+        credentials: 'include'
       });
       
       const data = await response.json();
@@ -140,6 +147,7 @@ class SSHService {
     try {
       const response = await fetch(`${this.baseUrl}/connections/${connectionId}/connect`, {
         method: 'POST',
+        credentials: 'include'
       });
       
       const data = await response.json();
@@ -155,6 +163,37 @@ class SSHService {
     }
   }
 
+  // Quick Connect directo
+  async quickConnect(config: {
+    host: string;
+    port?: number;
+    username: string;
+    password: string;
+    name?: string;
+  }): Promise<ConnectResponse & { connectionId: string }> {
+    try {
+      const response = await fetch(`${this.baseUrl}/quick-connect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(config),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Quick connect failed');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error in quick connect:', error);
+      throw error;
+    }
+  }
+
   async disconnect(sessionId: string): Promise<void> {
     try {
       const response = await fetch(`${this.baseUrl}/disconnect`, {
@@ -162,6 +201,7 @@ class SSHService {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ sessionId }),
       });
       
@@ -189,6 +229,7 @@ class SSHService {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(config),
       });
       

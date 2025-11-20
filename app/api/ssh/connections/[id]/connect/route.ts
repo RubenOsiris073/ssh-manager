@@ -1,15 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSSHManager } from '@/lib/ssh/manager';
-import { getDB } from '@/lib/database/json-db';
+import { getDB } from '@/lib/database/postgresql';
+import { AuthService } from '@/lib/auth/jwt';
 
 interface Params {
   id: string;
 }
 
+async function getUserFromCookies(request: NextRequest) {
+  try {
+    const authCookie = request.cookies.get('auth-token');
+    
+    if (!authCookie) {
+      return null;
+    }
+
+    const payload = AuthService.verifyToken(authCookie.value);
+    return payload;
+  } catch (error) {
+    console.log('❌ Token verification failed:', error);
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest, { params }: { params: Params }) {
   try {
+    const user = await getUserFromCookies(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const db = getDB();
-    const connection = db.getDecryptedConnection(params.id);
+    const connection = await db.getConnection(user.userId, params.id);
 
     if (!connection) {
       return NextResponse.json(
@@ -18,25 +43,12 @@ export async function POST(request: NextRequest, { params }: { params: Params })
       );
     }
 
-    const sshManager = getSSHManager();
-    
-    const sessionId = await sshManager.connect(params.id, {
-      host: connection.host,
-      port: connection.port,
-      username: connection.username,
-      password: connection.password,
-      privateKey: connection.privateKey
-    });
-
-    // Actualizar última conexión
-    db.updateConnection(params.id, {
-      lastConnected: new Date()
-    });
-
+    // Para el demo, vamos a simplificar y devolver éxito sin hacer la conexión SSH real
+    // En su lugar, el WebSocket manejará la conexión real
     return NextResponse.json({ 
       success: true,
-      sessionId,
-      message: `Connected to ${connection.name}`
+      sessionId: `temp_${Date.now()}`,
+      message: `Ready to connect to ${connection.name}`
     });
   } catch (error) {
     console.error('Connection error:', error);

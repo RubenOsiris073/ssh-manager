@@ -24,13 +24,12 @@ async function getUserFromCookies(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  console.log('🚀 ROUTE HANDLER STARTED - /api/ssh/connections/');
+  console.log('🚀 TEST ROUTE HANDLER STARTED - /api/test-connections/');
   console.log('📊 Request URL:', request.url);
   console.log('🍪 Request cookies:', request.cookies.toString());
-  console.log('🌐 Request headers:', JSON.stringify(Object.fromEntries(request.headers.entries())));
   
   try {
-    console.log('🔍 GET /api/ssh/connections/ - Starting request');
+    console.log('🔍 GET /api/test-connections/ - Starting request');
     
     const user = await getUserFromCookies(request);
     if (!user) {
@@ -60,59 +59,14 @@ export async function GET(request: NextRequest) {
     });
 
     console.log('✅ Returning connections successfully');
-    return NextResponse.json({ connections: safeConnections });
+    return NextResponse.json({ 
+      message: 'TEST ROUTE SUCCESS!', 
+      connections: safeConnections 
+    });
   } catch (error) {
     console.error('Error fetching connections:', error);
     return NextResponse.json(
       { error: 'Failed to fetch connections' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const user = await getUserFromCookies(request);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const body = await request.json();
-    const { name, host, port = 22, username, password, privateKey, groupId, notes } = body;
-
-    if (!name || !host || !username) {
-      return NextResponse.json(
-        { error: 'Name, host, and username are required' },
-        { status: 400 }
-      );
-    }
-
-    const db = getDB();
-    const connection = await db.createConnection(user.userId, {
-      name,
-      host,
-      port: Number(port),
-      username,
-      password,
-      private_key: privateKey,
-      group_id: groupId,
-      notes,
-      last_connected: undefined
-    });
-
-    // No devolver password/key
-    const { password: _, private_key: __, ...safeConnection } = connection;
-    
-    return NextResponse.json({ 
-      connection: { ...safeConnection, status: 'disconnected' as const }
-    });
-  } catch (error) {
-    console.error('Error creating connection:', error);
-    return NextResponse.json(
-      { error: 'Failed to create connection' },
       { status: 500 }
     );
   }
