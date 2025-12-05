@@ -207,6 +207,11 @@ export function SSHManager() {
     }
   }
 
+  const handleConnectionCreated = (connection: SSHConnection) => {
+    // Solo actualizar estado local, la conexión ya fue guardada en DB
+    setConnections((prev) => [...prev, connection])
+  }
+
   const handleEditConnection = (connection: SSHConnection) => {
     setEditingConnection(connection)
     setShowConnectionDialog(true)
@@ -236,23 +241,37 @@ export function SSHManager() {
     }
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!connectionToDelete) return
 
-    setConnections((prev) => prev.filter((conn) => conn.id !== connectionToDelete.id))
+    try {
+      // Llamar al API para eliminar la conexión permanentemente
+      await sshService.deleteConnection(connectionToDelete.id)
 
-    if (activeConnection === connectionToDelete.id) {
-      setActiveConnection(null)
-      setShowHome(true)
+      // Actualizar el estado local después de la eliminación exitosa
+      setConnections((prev) => prev.filter((conn) => conn.id !== connectionToDelete.id))
+
+      if (activeConnection === connectionToDelete.id) {
+        setActiveConnection(null)
+        setShowHome(true)
+      }
+
+      toast({
+        title: "Connection Deleted",
+        description: `${connectionToDelete.name} has been permanently removed`,
+        variant: "destructive",
+      })
+
+      setConnectionToDelete(null)
+      setShowDeleteConfirmation(false)
+    } catch (error) {
+      console.error('Error deleting connection:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete connection. Please try again.",
+        variant: "destructive",
+      })
     }
-
-    toast({
-      title: "Connection Deleted",
-      description: `${connectionToDelete.name} has been removed`,
-      variant: "destructive",
-    })
-
-    setConnectionToDelete(null)
   }
 
   const handleShowDetails = (connection: SSHConnection) => {
@@ -374,6 +393,7 @@ export function SSHManager() {
             connections={connections}
             onConnect={handleConnect}
             onAddConnection={handleAddConnection}
+            onConnectionCreated={handleConnectionCreated}
             onEditConnection={handleEditConnection}
             onDeleteConnection={handleDeleteConnection}
             onShowDetails={handleShowDetails}

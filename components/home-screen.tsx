@@ -24,6 +24,7 @@ interface HomeScreenProps {
   connections: SSHConnection[]
   onConnect: (connectionId: string) => void
   onAddConnection: (connection: Omit<SSHConnection, "id" | "status">) => void
+  onConnectionCreated: (connection: SSHConnection) => void
   onEditConnection: (connection: SSHConnection) => void
   onDeleteConnection: (connectionId: string) => void
 }
@@ -39,6 +40,7 @@ export function HomeScreen({
   connections,
   onConnect,
   onAddConnection,
+  onConnectionCreated,
   onEditConnection,
   onDeleteConnection,
 }: HomeScreenProps) {
@@ -83,8 +85,8 @@ export function HomeScreen({
         lastConnected: new Date(),
       }
 
-      // Agregar la conexión al estado
-      onAddConnection(newConnection)
+      // Actualizar solo el estado local (ya está guardada en DB por quick-connect)
+      onConnectionCreated(newConnection)
       
       // Conectar inmediatamente
       onConnect(result.connectionId)
@@ -323,10 +325,6 @@ export function HomeScreen({
               <Globe className="h-5 w-5" />
               All Connections ({connections.length})
             </h2>
-            <Button variant="outline" className="gap-2 bg-transparent">
-              <Plus className="h-4 w-4" />
-              Add Connection
-            </Button>
           </div>
 
           {connections.length === 0 ? (
@@ -338,7 +336,7 @@ export function HomeScreen({
                   <p className="text-muted-foreground mb-4">Add your first SSH connection to get started</p>
                   <Button onClick={() => setShowQuickConnect(true)} className="gap-2">
                     <Plus className="h-4 w-4" />
-                    Add Connection
+                    Quick Connect
                   </Button>
                 </div>
               </div>

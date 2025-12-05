@@ -173,7 +173,7 @@ export function TerminalArea({ connections, activeConnection }: TerminalAreaProp
       <div className="flex-1 relative">
         {currentConnection && currentTab ? (
           <Terminal
-            key={currentTab.id}
+            key={`terminal-${currentConnection.id}`}
             connectionId={currentConnection.id}
             connection={{
               id: currentConnection.id,

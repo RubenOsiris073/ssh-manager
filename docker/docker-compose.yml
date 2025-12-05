@@ -84,6 +84,189 @@ services:
     profiles:
       - dev # Solo se ejecuta con --profile dev
 
+  # ==============================================
+  # SERVIDORES SSH DE PRUEBA
+  # ==============================================
+  
+  # Servidor SSH Ubuntu 1
+  ssh-test-ubuntu:
+    image: ubuntu:22.04
+    container_name: ssh-test-ubuntu
+    restart: unless-stopped
+    ports:
+      - "2201:22"
+    environment:
+      - SSH_USER=ubuntu
+      - SSH_PASSWORD=ubuntu123
+      - ROOT_PASSWORD=root123
+    networks:
+      - ssh-manager-network
+    command: |
+      bash -c "
+      apt-get update && apt-get install -y openssh-server sudo curl wget vim nano htop &&
+      mkdir -p /var/run/sshd &&
+      echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config &&
+      echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config &&
+      echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config &&
+      echo 'root:root123' | chpasswd &&
+      id -u ubuntu &>/dev/null || useradd -m -s /bin/bash ubuntu &&
+      echo 'ubuntu:ubuntu123' | chpasswd &&
+      usermod -aG sudo ubuntu &&
+      mkdir -p /home/ubuntu/.ssh &&
+      chown ubuntu:ubuntu /home/ubuntu/.ssh &&
+      chmod 700 /home/ubuntu/.ssh &&
+      /usr/sbin/sshd -D
+      "
+
+  # Servidor SSH CentOS/RHEL
+  ssh-test-centos:
+    image: quay.io/centos/centos:stream9
+    container_name: ssh-test-centos
+    restart: unless-stopped
+    ports:
+      - "2202:22"
+    environment:
+      - SSH_USER=centos
+      - SSH_PASSWORD=centos123
+    networks:
+      - ssh-manager-network
+    command: |
+      bash -c "
+      dnf update -y &&
+      dnf install -y openssh-server sudo vim procps-ng &&
+      ssh-keygen -A &&
+      mkdir -p /var/run/sshd &&
+      echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config &&
+      echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config &&
+      echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config &&
+      echo 'root:root123' | chpasswd &&
+      id -u centos &>/dev/null || useradd -m -s /bin/bash centos &&
+      echo 'centos:centos123' | chpasswd &&
+      usermod -aG wheel centos &&
+      echo 'CentOS SSH Server Ready' > /etc/motd &&
+      while true; do
+        /usr/sbin/sshd -D &
+        SSHD_PID=\$!
+        sleep 10
+        if ! kill -0 \$SSHD_PID 2>/dev/null; then
+          echo 'SSH daemon died, restarting...'
+        else
+          wait \$SSHD_PID
+        fi
+      done
+      "
+
+  # Servidor SSH Alpine (ligero)
+  ssh-test-alpine:
+    image: alpine:3.18
+    container_name: ssh-test-alpine
+    restart: unless-stopped
+    ports:
+      - "2203:22"
+    environment:
+      - SSH_USER=alpine
+      - SSH_PASSWORD=alpine123
+    networks:
+      - ssh-manager-network
+    command: |
+      sh -c "
+      apk update &&
+      apk add --no-cache openssh-server sudo curl wget vim nano htop bash &&
+      ssh-keygen -A &&
+      mkdir -p /var/run/sshd &&
+      echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config &&
+      echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config &&
+      echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config &&
+      echo 'root:root123' | chpasswd &&
+      id alpine &>/dev/null || adduser -D -s /bin/bash alpine &&
+      echo 'alpine:alpine123' | chpasswd &&
+      addgroup alpine wheel &&
+      /usr/sbin/sshd -D
+      "
+
+  # Servidor SSH Debian
+  ssh-test-debian:
+    image: debian:12-slim
+    container_name: ssh-test-debian
+    restart: unless-stopped
+    ports:
+      - "2204:22"
+    environment:
+      - SSH_USER=debian
+      - SSH_PASSWORD=debian123
+    networks:
+      - ssh-manager-network
+    command: |
+      bash -c "
+      apt-get update && apt-get install -y openssh-server sudo curl wget vim nano htop &&
+      mkdir -p /var/run/sshd &&
+      echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config &&
+      echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config &&
+      echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config &&
+      echo 'root:root123' | chpasswd &&
+      id -u debian &>/dev/null || useradd -m -s /bin/bash debian &&
+      echo 'debian:debian123' | chpasswd &&
+      usermod -aG sudo debian &&
+      /usr/sbin/sshd -D
+      "
+
+  # Servidor SSH con herramientas de desarrollo
+  ssh-test-devbox:
+    image: ubuntu:22.04
+    container_name: ssh-test-devbox
+    restart: unless-stopped
+    ports:
+      - "2205:22"
+    environment:
+      - SSH_USER=developer
+      - SSH_PASSWORD=dev123
+    networks:
+      - ssh-manager-network
+    command: |
+      bash -c "
+      apt-get update && apt-get install -y openssh-server sudo curl wget vim nano htop git python3 python3-pip nodejs npm docker.io &&
+      mkdir -p /var/run/sshd &&
+      echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config &&
+      echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config &&
+      echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config &&
+      echo 'root:root123' | chpasswd &&
+      id -u developer &>/dev/null || useradd -m -s /bin/bash developer &&
+      echo 'developer:dev123' | chpasswd &&
+      usermod -aG sudo,docker developer &&
+      mkdir -p /home/developer/.ssh /home/developer/projects &&
+      chown -R developer:developer /home/developer &&
+      chmod 700 /home/developer/.ssh &&
+      /usr/sbin/sshd -D
+      "
+
+  # Servidor SSH personalizado para testing
+  ssh-test-custom:
+    image: ubuntu:20.04
+    container_name: ssh-test-custom
+    restart: unless-stopped
+    ports:
+      - "2206:22"
+    environment:
+      - SSH_USER=tester
+      - SSH_PASSWORD=test123
+    networks:
+      - ssh-manager-network
+    command: |
+      bash -c "
+      apt-get update && apt-get install -y openssh-server sudo curl wget vim nano htop net-tools iputils-ping &&
+      mkdir -p /var/run/sshd &&
+      echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config &&
+      echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config &&
+      echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config &&
+      echo 'Port 22' >> /etc/ssh/sshd_config &&
+      echo 'root:root123' | chpasswd &&
+      id -u tester &>/dev/null || useradd -m -s /bin/bash tester &&
+      echo 'tester:test123' | chpasswd &&
+      usermod -aG sudo tester &&
+      echo 'Welcome to Test Server!' > /etc/motd &&
+      /usr/sbin/sshd -D
+      "
+
 volumes:
   postgres_data:
     driver: local

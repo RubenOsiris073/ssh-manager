@@ -29,6 +29,7 @@ export function ConnectionDialog({ open, onOpenChange, onAddConnection, editingC
     host: "",
     port: 22,
     username: "",
+    password: "",
   })
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export function ConnectionDialog({ open, onOpenChange, onAddConnection, editingC
         host: editingConnection.host,
         port: editingConnection.port,
         username: editingConnection.username,
+        password: "",
       })
     } else {
       setFormData({
@@ -45,6 +47,7 @@ export function ConnectionDialog({ open, onOpenChange, onAddConnection, editingC
         host: "",
         port: 22,
         username: "",
+        password: "",
       })
     }
   }, [editingConnection, open])
@@ -65,6 +68,7 @@ export function ConnectionDialog({ open, onOpenChange, onAddConnection, editingC
         host: "",
         port: 22,
         username: "",
+        password: "",
       })
     }
   }
@@ -146,6 +150,21 @@ export function ConnectionDialog({ open, onOpenChange, onAddConnection, editingC
               placeholder="root"
               value={formData.username}
               onChange={(e) => handleInputChange("username", e.target.value)}
+              className="bg-input border-border text-foreground"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-card-foreground">
+              Password
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Enter password"
+              value={formData.password}
+              onChange={(e) => handleInputChange("password", e.target.value)}
               className="bg-input border-border text-foreground"
               required
             />

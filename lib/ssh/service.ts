@@ -126,7 +126,7 @@ class SSHService {
 
   async deleteConnection(id: string): Promise<void> {
     try {
-      const response = await fetch(`${this.baseUrl}/connections/${id}`, {
+      const response = await fetch(`${this.baseUrl}/connections/${id}/`, {
         method: 'DELETE',
         credentials: 'include'
       });

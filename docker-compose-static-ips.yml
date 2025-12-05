@@ -1,0 +1,124 @@
+services:
+  # Servidor SSH Ubuntu
+  ssh-test-ubuntu:
+    image: linuxserver/openssh-server:latest
+    container_name: ssh-test-ubuntu
+    restart: unless-stopped
+    hostname: ubuntu-server
+    ports:
+      - "2201:2222"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Mexico_City
+      - USER_NAME=ubuntu
+      - USER_PASSWORD=ubuntu123
+      - PASSWORD_ACCESS=true
+      - SUDO_ACCESS=true
+    networks:
+      docker_ssh-manager-network:
+        ipv4_address: 172.19.0.5
+
+  # Servidor SSH Custom
+  ssh-test-custom:
+    image: linuxserver/openssh-server:latest
+    container_name: ssh-test-custom
+    restart: unless-stopped
+    hostname: custom-server
+    ports:
+      - "2206:2222"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Mexico_City
+      - USER_NAME=custom
+      - USER_PASSWORD=custom123
+      - PASSWORD_ACCESS=true
+      - SUDO_ACCESS=true
+    networks:
+      docker_ssh-manager-network:
+        ipv4_address: 172.19.0.6
+
+  # Servidor SSH Alpine
+  ssh-test-alpine:
+    image: linuxserver/openssh-server:latest
+    container_name: ssh-test-alpine
+    restart: unless-stopped
+    hostname: alpine-server
+    ports:
+      - "2203:2222"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Mexico_City
+      - USER_NAME=alpine
+      - USER_PASSWORD=alpine123
+      - PASSWORD_ACCESS=true
+      - SUDO_ACCESS=true
+    networks:
+      docker_ssh-manager-network:
+        ipv4_address: 172.19.0.7
+
+  # Servidor SSH DevBox
+  ssh-test-devbox:
+    image: linuxserver/openssh-server:latest
+    container_name: ssh-test-devbox
+    restart: unless-stopped
+    hostname: devbox-server
+    ports:
+      - "2204:2222"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Mexico_City
+      - USER_NAME=devbox
+      - USER_PASSWORD=devbox123
+      - PASSWORD_ACCESS=true
+      - SUDO_ACCESS=true
+    networks:
+      docker_ssh-manager-network:
+        ipv4_address: 172.19.0.8
+
+  # Servidor SSH Debian
+  ssh-test-debian:
+    image: linuxserver/openssh-server:latest
+    container_name: ssh-test-debian
+    restart: unless-stopped
+    hostname: debian-server
+    ports:
+      - "2205:2222"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Mexico_City
+      - USER_NAME=debian
+      - USER_PASSWORD=debian123
+      - PASSWORD_ACCESS=true
+      - SUDO_ACCESS=true
+    networks:
+      docker_ssh-manager-network:
+        ipv4_address: 172.19.0.9
+
+  # Servidor SSH CentOS
+  ssh-test-centos:
+    image: linuxserver/openssh-server:latest
+    container_name: ssh-test-centos
+    restart: unless-stopped
+    hostname: centos-server
+    ports:
+      - "2202:2222"
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Mexico_City
+      - USER_NAME=centos
+      - USER_PASSWORD=centos123
+      - PASSWORD_ACCESS=true
+      - SUDO_ACCESS=true
+    networks:
+      docker_ssh-manager-network:
+        ipv4_address: 172.19.0.10
+
+networks:
+  docker_ssh-manager-network:
+    external: true

@@ -26,9 +26,9 @@ export default function Terminal({ connectionId, connection, onClose, onConnecti
   const xtermRef = useRef<XTerm | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const sessionIdRef = useRef<string | null>(null); // Usar ref en lugar de state
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
 
   const updateStatus = useCallback((newStatus: typeof status) => {
@@ -37,7 +37,9 @@ export default function Terminal({ connectionId, connection, onClose, onConnecti
   }, [onConnectionChange]);
 
   const connectWebSocket = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+    // Prevenir múltiples conexiones simultáneas
+    if (wsRef.current?.readyState === WebSocket.OPEN || wsRef.current?.readyState === WebSocket.CONNECTING) {
+      console.log('⚠️ WebSocket already connecting or open, skipping...');
       return;
     }
 
@@ -45,6 +47,7 @@ export default function Terminal({ connectionId, connection, onClose, onConnecti
     const wsPort = process.env.NEXT_PUBLIC_WS_PORT || '3001';
     const wsUrl = `${wsProtocol}//${window.location.hostname}:${wsPort}`;
     
+    console.log('🔌 Creating new WebSocket connection to', wsUrl);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -89,7 +92,7 @@ export default function Terminal({ connectionId, connection, onClose, onConnecti
 
           case 'connected':
             console.log('🔗 SSH connected');
-            setCurrentSessionId(message.sessionId);
+            sessionIdRef.current = message.sessionId;
             updateStatus('connected');
             xtermRef.current?.write(`\r\n✅ Connected to ${connection.host}\r\n`);
             break;
@@ -102,7 +105,7 @@ export default function Terminal({ connectionId, connection, onClose, onConnecti
 
           case 'close':
             console.log('🔌 SSH connection closed');
-            setCurrentSessionId(null);
+            sessionIdRef.current = null;
             updateStatus('disconnected');
             xtermRef.current?.write('\r\n📱 SSH connection closed\r\n');
             break;
@@ -128,8 +131,9 @@ export default function Terminal({ connectionId, connection, onClose, onConnecti
 
     ws.onclose = (event) => {
       console.log('📱 WebSocket closed:', event.code, event.reason);
+      wsRef.current = null;
       
-      if (!event.wasClean && !isReconnecting && status === 'connected') {
+      if (!event.wasClean && !isReconnecting) {
         setIsReconnecting(true);
         updateStatus('connecting');
         xtermRef.current?.write('\r\n🔄 Connection lost, reconnecting...\r\n');
@@ -142,7 +146,7 @@ export default function Terminal({ connectionId, connection, onClose, onConnecti
         updateStatus('disconnected');
       }
     };
-  }, [connectionId, connection.host, status, isReconnecting, updateStatus]);
+  }, [connectionId, isAuthenticated, updateStatus, isReconnecting]);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -184,42 +188,53 @@ export default function Terminal({ connectionId, connection, onClose, onConnecti
 
     // Manejar entrada del usuario
     xterm.onData((data) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN && currentSessionId) {
+      if (wsRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
         wsRef.current.send(JSON.stringify({
           type: 'data',
           data: data,
-          sessionId: currentSessionId
+          sessionId: sessionIdRef.current
         }));
+      } else {
+        console.log('⚠️ Cannot send data - WS state:', wsRef.current?.readyState, 'SessionID:', sessionIdRef.current);
       }
     });
 
     // Manejar redimensionamiento
     xterm.onResize(({ cols, rows }) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN && currentSessionId) {
+      if (wsRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
         wsRef.current.send(JSON.stringify({
           type: 'resize',
           cols: cols,
           rows: rows,
-          sessionId: currentSessionId
+          sessionId: sessionIdRef.current
         }));
       }
     });
 
-    // Conectar WebSocket
+    // Conectar WebSocket (solo una vez al montar)
     connectWebSocket();
 
     // Cleanup
     return () => {
-      if (wsRef.current && currentSessionId) {
-        wsRef.current.send(JSON.stringify({ 
-          type: 'disconnect',
-          sessionId: currentSessionId 
-        }));
+      console.log('🧹 Cleaning up terminal and WebSocket...');
+      if (wsRef.current) {
+        if (wsRef.current.readyState === WebSocket.OPEN && sessionIdRef.current) {
+          try {
+            wsRef.current.send(JSON.stringify({ 
+              type: 'disconnect',
+              sessionId: sessionIdRef.current 
+            }));
+          } catch (error) {
+            console.error('Error sending disconnect:', error);
+          }
+        }
         wsRef.current.close();
+        wsRef.current = null;
       }
+      sessionIdRef.current = null;
       xterm.dispose();
     };
-  }, [connection, connectWebSocket]);
+  }, [connectionId]); // Solo reconectar si cambia el connectionId
 
   // Redimensionar cuando cambie el tamaño del contenedor
   useEffect(() => {
@@ -234,13 +249,14 @@ export default function Terminal({ connectionId, connection, onClose, onConnecti
   }, []);
 
   const handleDisconnect = () => {
-    if (wsRef.current && currentSessionId) {
+    if (wsRef.current && sessionIdRef.current) {
       wsRef.current.send(JSON.stringify({ 
         type: 'disconnect',
-        sessionId: currentSessionId 
+        sessionId: sessionIdRef.current 
       }));
       wsRef.current.close();
     }
+    sessionIdRef.current = null;
     onClose?.();
   };
 

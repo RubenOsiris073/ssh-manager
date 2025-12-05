@@ -97,14 +97,6 @@ export function ConnectionSidebar({
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-lg font-semibold text-sidebar-foreground">SSH Manager</h1>
-          <Button
-            size="sm"
-            onClick={onAddConnection}
-            className="bg-sidebar-primary hover:bg-sidebar-primary/90 text-sidebar-primary-foreground"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Add
-          </Button>
         </div>
 
         <div className="mb-4">
